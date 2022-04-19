@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/acoshift/pgsql/pgctx"
 )
 
 // DB is a logical database with multiple underlying physical databases
@@ -16,6 +18,8 @@ type DB struct {
 	pdbs  []*sql.DB // Physical databases
 	count uint64    // Monotonically incrementing counter on each query
 }
+
+var _ pgctx.DB = &DB{}
 
 // Open concurrently opens each underlying physical db.
 // dataSourceNames must be a semi-comma separated list of DSNs with the first
@@ -28,11 +32,9 @@ func Open(driverName, dataSourceNames string) (*DB, error) {
 		db.pdbs[i], err = sql.Open(driverName, conns[i])
 		return err
 	})
-
 	if err != nil {
 		return nil, err
 	}
-
 	return db, nil
 }
 
@@ -94,19 +96,16 @@ func (db *DB) PingContext(ctx context.Context) error {
 
 // Prepare creates a prepared statement for later queries or executions
 // on each physical database, concurrently.
-func (db *DB) Prepare(query string) (Stmt, error) {
+func (db *DB) Prepare(query string) (*sql.Stmt, error) {
 	stmts := make([]*sql.Stmt, len(db.pdbs))
-
 	err := scatter(len(db.pdbs), func(i int) (err error) {
 		stmts[i], err = db.pdbs[i].Prepare(query)
 		return err
 	})
-
 	if err != nil {
 		return nil, err
 	}
-
-	return &stmt{db: db, stmts: stmts}, nil
+	return stmts[0], nil
 }
 
 // PrepareContext creates a prepared statement for later queries or executions
@@ -114,7 +113,7 @@ func (db *DB) Prepare(query string) (Stmt, error) {
 //
 // The provided context is used for the preparation of the statement, not for
 // the execution of the statement.
-func (db *DB) PrepareContext(ctx context.Context, query string) (Stmt, error) {
+func (db *DB) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
 	stmts := make([]*sql.Stmt, len(db.pdbs))
 
 	err := scatter(len(db.pdbs), func(i int) (err error) {
@@ -125,7 +124,7 @@ func (db *DB) PrepareContext(ctx context.Context, query string) (Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &stmt{db: db, stmts: stmts}, nil
+	return stmts[0], nil
 }
 
 // Query executes a query that returns rows, typically a SELECT.
