@@ -20,3 +20,9 @@ _cgo_export.*
 _testmain.go
 
 *.exe
+.idea/codeStyles/codeStyleConfig.xml
+.idea/codeStyles/Project.xml
+.idea/misc.xml
+.idea/modules.xml
+.idea/nap.iml
+.idea/vcs.xml
