@@ -199,6 +199,11 @@ func (db *DB) Master() *sql.DB {
 	return db.pdbs[0]
 }
 
+// Count of Physical databases
+func (db *DB) Count() int {
+	return len(db.pdbs)
+}
+
 func (db *DB) slave(n int) int {
 	if n <= 1 {
 		return 0
